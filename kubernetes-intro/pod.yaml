@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myhomework
+  namespace: homework
+spec:
+  containers:
+    - name: web
+      image: traefik
+      ports:
+        - containerPort: 8000
+          protocol: TCP
+      volumeMounts:
+        - name: workdir
+          mountPath: /usr/share/nginx/html
+      #delete index.html defore delete
+      lifecycle:
+        preStop:
+          exec:
+            command: ["sh","-c","rm -f /homework/index.html"]
+  initContainers:
+    - name: htnlgenerator
+      image: busybox
+      command: ['sh', '-c', 'echo "<html><body><h1>Hello, Otus this first homework!</h1></body></html>" > /init/index.html']
+      volumeMounts:
+        - name: workdir
+          mountPath: "/homework"
+  volumes:
+    - name: workdir
+      emptyDir: {}
