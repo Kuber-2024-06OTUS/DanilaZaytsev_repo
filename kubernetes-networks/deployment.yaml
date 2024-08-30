@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: homework
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: web-server
+    spec:
+      initContainers:
+        - name: index-html-generator
+          # https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container
+          image: busybox:stable
+          command:
+            - wget
+            - "-O"
+            - "/init/index.html"
+            - http://info.cern.ch
+          volumeMounts:
+            - name: workdir
+              mountPath: "/init"
+      containers:
+        - name: web-server
+          image: nginx:stable
+          ports:
+            - name: port-http
+              containerPort: 8000
+          volumeMounts:
+            - name: workdir
+              mountPath: "/homework"
+            - name: nginx-config
+              mountPath: "/etc/nginx/conf.d"
+          readinessProbe:
+            httpGet:
+              port: port-http
+              path: "/index.html"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - rm
+                  - "/homework/index.html"
+      volumes:
+        - name: workdir
+          emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: cm-web-server-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-web-server-config
+  namespace: homework
+data:
+  web-server.conf: |-
+    server {
+      listen        8000;
+      server_name   localhost;
+    
+      root /homework;
+      index index.html;
+    }
